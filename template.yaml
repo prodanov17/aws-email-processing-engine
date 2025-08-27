@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  The complete serverless backend for the Email Productivity Engine.
+
+Globals:
+  Function:
+    Timeout: 15
+    Runtime: nodejs22.x
+    MemorySize: 256
+
+Resources:
+  # --- SQS Queues for Decoupling ---
+  EmailProcessingQueueDLQ:
+    Type: AWS::SQS::Queue
+    # The "Description" property is not supported on AWS::SQS::Queue and was removed.
+
+  EmailProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 30 # Must be >= the timeout of ProcessEmailQueueFunction
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EmailProcessingQueueDLQ.Arn
+        maxReceiveCount: 3 # Retry a failed message up to 3 times
+
+  ActionsQueueDLQ:
+    Type: AWS::SQS::Queue
+    # The "Description" property is not supported on AWS::SQS::Queue and was removed.
+
+  ActionsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 60 # Must be >= the timeout of CreateUserActionsFunction
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ActionsQueueDLQ.Arn
+        maxReceiveCount: 3
+
+  # --- DynamoDB Tables ---
+  UsersTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: userId
+        Type: String
+      TableName: EmailProductivityUsers
+
+  ProcessedEmailsTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: emailHash
+        Type: String
+      TableName: ProcessedEmails # Corrected table name for consistency
+
+  # --- Lambda Functions ---
+  AuthConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/auth-connect/
+      Handler: index.handler
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: /EmailProductivityEngine/*
+      # Note: API Gateway events are commented out as you've deployed it manually.
+
+  AuthCallbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/auth-callback/
+      Handler: index.handler
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: /EmailProductivityEngine/*
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+
+  ProcessEmailWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/process-email-webhook/
+      Handler: index.handler
+      Environment:
+        Variables:
+          EMAIL_PROCESSING_QUEUE_URL: !Ref EmailProcessingQueue
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt EmailProcessingQueue.QueueName
+
+  ProcessEmailQueueFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/process-email-queue/
+      Handler: index.handler
+      Timeout: 30 # Give more time for potential Gemini API latency
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+          PROCESSED_EMAILS_TABLE: !Ref ProcessedEmailsTable
+          ACTIONS_QUEUE_URL: !Ref ActionsQueue
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProcessedEmailsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ActionsQueue.QueueName
+        - SSMParameterReadPolicy:
+            ParameterName: /EmailProductivityEngine/*
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EmailProcessingQueue.Arn
+            BatchSize: 5 # Process up to 5 emails at a time
+
+  CreateUserActionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/create-user-actions/
+      Handler: index.handler
+      Timeout: 60 # Give ample time for multiple external API calls
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBWritePolicy: # Needed to update the access token after refresh
+            TableName: !Ref UsersTable
+        - SSMParameterReadPolicy:
+            ParameterName: /EmailProductivityEngine/*
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ActionsQueue.Arn
+            BatchSize: 1 # Process one user's actions at a time for simplicity
+
