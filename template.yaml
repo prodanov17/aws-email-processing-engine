@@ -58,6 +58,9 @@ Resources:
     Properties:
       CodeUri: functions/auth-connect/
       Handler: index.handler
+      Environment:
+        Variables:
+          MICROSOFT_TENANT_ID: f0cac47b-e2b3-4e1b-a52f-487d2d996288
       Policies:
         - SSMParameterReadPolicy:
             ParameterName: /EmailProductivityEngine/*
@@ -68,6 +71,9 @@ Resources:
     Properties:
       CodeUri: functions/auth-callback/
       Handler: index.handler
+      Environment:
+        Variables:
+          MICROSOFT_TENANT_ID: f0cac47b-e2b3-4e1b-a52f-487d2d996288
       Policies:
         - SSMParameterReadPolicy:
             ParameterName: /EmailProductivityEngine/*

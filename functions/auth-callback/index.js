@@ -75,7 +75,12 @@ export async function handler(event) {
     });
 
     const frontendUrl = `http://localhost:5173/connection-successful?userId=${finalUserId}`;
-    return redirect(frontendUrl);
+    return ok({
+      url: frontendUrl,
+      userId: finalUserId,
+      message:
+        "Use the provided userId to authenticate future integration requests",
+    });
   } catch (error) {
     console.error("Callback error:", error);
     return serverError({ message: error.message });

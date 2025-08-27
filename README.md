@@ -39,8 +39,8 @@ Before you begin, ensure you have the following:
 
 1.  **Clone the Repository**
     ```bash
-    git clone <your-repository-url>
-    cd <repository-directory>
+    git clone https://github.com/prodanov17/aws-email-processing-engine.git
+    cd aws-email-processing-engine
     ```
 
 2.  **Install Dependencies**
@@ -52,6 +52,7 @@ Before you begin, ensure you have the following:
     - `/EmailProductivityEngine/geminiApiKey`
     - `/EmailProductivityEngine/googleClientID`
     - `/EmailProductivityEngine/googleClientSecret`
+    - `/EmailProductivityEngine/microsoftTenantID`
     - `/EmailProductivityEngine/microsoftClientID`
     - `/EmailProductivityEngine/microsoftClientSecret`
 

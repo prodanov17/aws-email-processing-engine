@@ -10,8 +10,7 @@ export const providers = {
     user_info_uri: "https://www.googleapis.com/oauth2/v2/userinfo",
   },
   microsoft: {
-    token_uri:
-      "https://login.microsoftonline.com/f0cac47b-e2b3-4e1b-a52f-487d2d996288/oauth2/v2.0/token",
+    token_uri: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
     user_info_uri: "https://graph.microsoft.com/v1.0/me",
   },
   // Add other providers here

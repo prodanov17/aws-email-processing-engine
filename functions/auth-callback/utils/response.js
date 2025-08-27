@@ -39,3 +39,11 @@ export function serverError(body) {
     body: JSON.stringify(body),
   };
 }
+
+export function ok(body) {
+  return {
+    statusCode: 200,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
